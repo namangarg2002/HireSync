@@ -1,0 +1,67 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+*/node_modules/
+
+# =========================
+# Environment Files (CRITICAL)
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Frontend (Vite)
+# =========================
+frontend/dist/
+frontend/.vite/
+
+# =========================
+# Backend (Express)
+# =========================
+backend/dist/
+backend/build/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# =========================
+# Coverage
+# =========================
+coverage/
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# Local Uploads (if using multer)
+# =========================
+backend/uploads/
+uploads/
+
+# =========================
+# Database Files (if local)
+# =========================
+*.sqlite
+*.db
+
+# =========================
+# Misc
+# =========================
+*.tsbuildinfo
