@@ -21,6 +21,8 @@ export const syncUser = inngest.createFunction(
         });
         await User.create(newUser);
 
+        console.log("New user created in DB:", newUser);
+
         await upsertStreamUser({
             id: id.toString(),
             name: newUser.name,
