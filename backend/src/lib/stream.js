@@ -1,7 +1,7 @@
 import { StreamChat } from 'stream-chat';
 
 const apiKey = process.env.STREAM_API_KEY;
-const apiSecret = process.env.STREAM_API_SECRET;
+const apiSecret = process.env.STREAM_SECRET_KEY;
 
 if (!apiKey || !apiSecret) {
   throw new Error('Stream API key and secret must be set in environment variables');
