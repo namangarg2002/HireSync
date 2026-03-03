@@ -18,7 +18,12 @@ const __dirname = path.resolve();
 app.use(express.json());
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true })); // Adjust the origin as needed
 
-app.use('/api/inngest', serve(inngest, { functions: [syncUser, deleteUserFromDB] }));
+app.use('/api/inngest',
+    serve({
+    client: inngest,
+    functions: [syncUser, deleteUserFromDB],
+  })
+);
 
 app.get('/health', (req, res) => {
     res.status(200).json({ message: 'successs from backend API' });
