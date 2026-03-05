@@ -9,25 +9,46 @@ export const syncUser = inngest.createFunction(
     {id: 'sync-user'},
     {event: 'clerk/user.created'},
     async ({ event }) => {
+        console.log("========== INNGEST FUNCTION START ==========");
+        console.log("Event received:", event.name);
+        console.log("Event data:", event.data);
+        
+        try {
+        console.log("Connecting to MongoDB...");
         await connectDB();
+        console.log("MongoDB connection successful");
 
         const { id, first_name, last_name, email_addresses, profile_image_url } = event.data;
 
-        const newUser = new User({
+        const userPayload = {
             name: `${first_name || ""} ${last_name || ""}`.trim(),
-            email: email_addresses[0].email_address,
+            email: email_addresses?.[0]?.email_address,
             profileImage: profile_image_url,
             clerkId: id
-        });
-        await User.create(newUser);
+        };
 
-        console.log("New user created in DB:", newUser);
+        console.log("Creating MongoDB user with payload:", userPayload);
 
+        const newUser = await User.create(userPayload);
+
+        console.log("MongoDB user created successfully:", newUser);
+
+        console.log("Calling Stream upsert...");
         await upsertStreamUser({
-            id: id.toString(),
+            id: newUser.clerkId.toString(),
             name: newUser.name,
-            image: newUser.profileImage,
+            image: newUser.profileImage
         });
+
+        console.log("Stream upsert completed successfully");
+
+        console.log("========== INNGEST FUNCTION END ==========");
+
+        } catch (error) {
+        console.error("❌ ERROR inside syncUser function:");
+        console.error(error);
+        throw error;
+        }
     },
 );
 
