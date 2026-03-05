@@ -123,7 +123,7 @@ async function joinSession(req, res) {
 
         // check is the sesion is 1:1 or not 
         if(session.participant) {
-            return res.status(400).json({ message: 'Session is already full' });
+            return res.status(409).json({ message: 'Session is already full' });
         }
 
         session.participant = userId;
