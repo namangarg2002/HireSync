@@ -113,7 +113,15 @@ async function joinSession(req, res) {
             return res.status(404).json({ message: 'Session not found' });
         }
 
-        // checnk is the sesion is 1:1 or not 
+        if(session.status !== 'active'){
+            return res.status(400).json({ message: "Cannot join a complete session"});
+        }
+
+        if(session.host.toString() === userId.toString()){
+            return res.status(400).json({ message: "Host cannot join their own session as participant" });
+        }
+
+        // check is the sesion is 1:1 or not 
         if(session.participant) {
             return res.status(400).json({ message: 'Session is already full' });
         }
