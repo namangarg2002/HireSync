@@ -1,27 +1,28 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
-import { serve } from 'inngest/express';
-import inngest, { syncUser, deleteUserFromDB } from './src/lib/inngest.js';
-import dotenv from 'dotenv';
+import { ENV } from './src/lib/config.js';
 import connectDB from './src/lib/db.js';
+import { serve } from 'inngest/express';
+import { clerkMiddleware } from '@clerk/express'
+import inngest, { syncUser, deleteUserFromDB } from './src/lib/inngest.js';
+import protectRoute from './src/middlewares/protectRoute.js';
+import chatRoutes from './src/routes/chatRoutes.js';
 
-dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = ENV.PORT || 3000;
 
 
 const __dirname = path.resolve();
 
 // middleware
 app.use(express.json());
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+app.use(clerkMiddleware());
+app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
 
 app.use("/api/inngest", (req, res, next) => {
   console.log("Incoming request to /api/inngest");
-  console.log("Headers:", req.headers);
-  console.log("Body:", req.body);
   next();
 });
 
@@ -32,16 +33,15 @@ app.use('/api/inngest',
   })
 );
 
+app.use('api/chat', chatRoutes);
+
 app.get('/health', (req, res) => {
     res.status(200).json({ message: 'successs from backend API' });
 });
 
-app.get('/books', (req, res) => {
-    res.status(200).json({ message: 'this is the books endpoint' });
-});
 
 // make our app ready for deployment
-if(process.env.NODE_ENV === 'production') {
+if(ENV.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'frontend/dist')));
 
     app.get((req, res) => {

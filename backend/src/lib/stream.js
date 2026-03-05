@@ -1,7 +1,8 @@
 import { StreamChat } from 'stream-chat';
+import { ENV } from "./config.js";
 
-const apiKey = process.env.STREAM_API_KEY;
-const apiSecret = process.env.STREAM_SECRET_KEY;
+const apiKey = ENV.STREAM_API_KEY;
+const apiSecret = ENV.STREAM_SECRET_KEY;
 
 console.log("========== STREAM INITIALIZATION ==========");
 
@@ -52,4 +53,4 @@ const deleteStreamUser = async (userId) => {
     }
 };
 
-export { upsertStreamUser, deleteStreamUser };
+export { upsertStreamUser, deleteStreamUser, chatClient };
