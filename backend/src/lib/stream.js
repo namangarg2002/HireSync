@@ -1,4 +1,5 @@
 import { StreamChat } from 'stream-chat';
+import { StreamClient } from '@stream-io/node-sdk';
 import { ENV } from "./config.js";
 
 const apiKey = ENV.STREAM_API_KEY;
@@ -15,7 +16,9 @@ if (!apiKey || !apiSecret) {
 
 console.log("Stream API Key Loaded:", apiKey);
 
-const chatClient = StreamChat.getInstance(apiKey, apiSecret);
+const chatClient = StreamChat.getInstance(apiKey, apiSecret); // this is for chat features
+
+const streamClient  = new StreamClient(apiKey, apiSecret);  // this will be used for video calls
 
 console.log("Stream client initialized successfully");
 
@@ -53,4 +56,4 @@ const deleteStreamUser = async (userId) => {
     }
 };
 
-export { upsertStreamUser, deleteStreamUser, chatClient };
+export { upsertStreamUser, deleteStreamUser, chatClient, streamClient };

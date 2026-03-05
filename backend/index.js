@@ -8,7 +8,7 @@ import { clerkMiddleware } from '@clerk/express'
 import inngest, { syncUser, deleteUserFromDB } from './src/lib/inngest.js';
 import protectRoute from './src/middlewares/protectRoute.js';
 import chatRoutes from './src/routes/chatRoutes.js';
-
+import sessionRoutes from './src/routes/sessionRoutes.js';
 
 const app = express();
 const PORT = ENV.PORT || 3000;
@@ -33,7 +33,8 @@ app.use('/api/inngest',
   })
 );
 
-app.use('api/chat', chatRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 app.get('/health', (req, res) => {
     res.status(200).json({ message: 'successs from backend API' });
