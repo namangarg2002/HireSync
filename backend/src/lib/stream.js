@@ -37,8 +37,8 @@ const upsertStreamUser = async (user) => {
 };
 
 const deleteStreamUser = async (userId) => {
-    console.error("❌ STREAM UPSERT FAILED");
-    console.error("Error:", error.response?.data || error);
+    console.log("---------- STREAM DELETE START ----------");
+    console.log("User ID:", userId);
     try {
         const response = await chatClient.deleteUser(userId);
         console.log("Stream delete response:", response);
