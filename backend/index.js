@@ -16,7 +16,14 @@ const __dirname = path.resolve();
 
 // middleware
 app.use(express.json());
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true })); // Adjust the origin as needed
+app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+
+app.use("/api/inngest", (req, res, next) => {
+  console.log("Incoming request to /api/inngest");
+  console.log("Headers:", req.headers);
+  console.log("Body:", req.body);
+  next();
+});
 
 app.use('/api/inngest',
     serve({
