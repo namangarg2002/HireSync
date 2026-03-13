@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { GripVertical, GripHorizontal } from "lucide-react";
 import toast from 'react-hot-toast';
 import confetti from "canvas-confetti";
 import { Panel, Group, Separator } from 'react-resizable-panels'
@@ -115,25 +116,30 @@ function ProbPage() {
     <div className='h-screen bg-base-100 flex flex-col'>
         <Navbar />
 
-        <div className='flex-1'>
+        <div className='flex-1 min-h-0 overflow-hidden'>
             <Group orientation="horizontal">
                 {/* Left Panel - Problem Desc */}
                 <Panel defaultSize={40} minSize={30}>
-                    <ProblemDescription
-                        problemId={currentProblemId} 
-                        problem={currentProblem}
-                        onProblemChange={handleProblemChange}
-                        allProblems={Object.values(PROBLEMS)}
-                    />
+                    <div className="h-full overflow-y-auto">
+                        <ProblemDescription
+                            problemId={currentProblemId} 
+                            problem={currentProblem}
+                            onProblemChange={handleProblemChange}
+                            allProblems={Object.values(PROBLEMS)}
+                        />
+                    </div>
                 </Panel>
 
-                <Separator className='w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize' />
+                <Separator className="w-3 bg-base-300 hover:bg-primary transition-colors cursor-col-resize flex items-center justify-center">
+                    <GripVertical className="w-4 h-4 text-base-content/40" />
+                </Separator>
 
                 {/* Right Panel - Code Editor & output */} 
-                <Panel defaultSize={50} minSize={30}>
-                    <Group orientation="vertical">
+                <Panel defaultSize={60} minSize={30}>
+                    <div className='h-full overflow-hidden'>
+                        <Group orientation="vertical">
                         {/* Top panel Code Editor */}
-                        <Panel defaultSize={70} minSize={30}>
+                        <Panel defaultSize={70} minSize={40}>
                             <CodeEditorPanel
                                 selectedLanguage={selectedLanguage}
                                 code={code}
@@ -144,15 +150,18 @@ function ProbPage() {
                             />
                         </Panel>
 
-                        <Separator className='h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize' />
+                        <Separator className="h-3 bg-base-300 hover:bg-primary transition-colors cursor-col-resize flex items-center justify-center">
+                            <GripHorizontal className="w-4 h-4 text-base-content/40" />
+                        </Separator>
 
                         {/* Bottom Output Panel */}
-                        <Panel defaultSize={30} minSize={20}>
+                        <Panel defaultSize={30} minSize={10}>
                             <OutputPanel
                                 output={output}
                             />
                         </Panel>
                     </Group>
+                    </div>
                 </Panel>
 
             </Group>

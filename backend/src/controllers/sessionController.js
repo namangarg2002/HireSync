@@ -11,7 +11,7 @@ async function createSession(req, res) {
         }
 
         // generate a unique callId for stream Video
-        const callId = `session_${Date.now()}_${Math.random().toString(36).substr(7)}`;
+        const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
         // create session in db
         const session  = await Session.create({
@@ -52,6 +52,7 @@ async function getActiveSession(_, res) {
     try {
         const sessions = await Session.find({status: 'active'})
         .populate('host', 'name profileImage email clerkId')
+        .populate("participant", "name profileImage email clerkId")
         .sort({ createdAt: -1 })
         .limit(20);
         res.status(200).json({ sessions });
