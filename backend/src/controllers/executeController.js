@@ -4,7 +4,6 @@ import runJS from "../runners/javascriptRunner.js";
 import runJava from "../runners/javaRunner.js";
 
 async function codeEditorExecution(req, res) {
-    console.log("Incoming request:", req.body);
     const { language, code } = req.body;
 
     try {

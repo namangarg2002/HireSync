@@ -14,13 +14,20 @@ export default function runJS(code) {
 
     const filePath = path.join(tempDir, `${uuid()}.js`);
 
-    console.log("Writing file to:", filePath);
 
     fs.writeFileSync(filePath, code);
 
+    const cleanup = () => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (e) {}
+    };
+
     exec(`node "${filePath}"`,{ timeout: 5000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
 
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      cleanup();
 
       if (error) {
         if (error.killed) {

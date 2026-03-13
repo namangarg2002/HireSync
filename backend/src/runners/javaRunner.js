@@ -16,19 +16,33 @@ export default function runJava(code) {
 
     fs.writeFileSync(javaFile, code);
 
-    exec(
-      `javac "${javaFile}" && java -cp "${tempDir}" Solution`,
-      { timeout: 5000 },
-      (error, stdout, stderr) => {
-
+    const cleanup = () => {
+      try {
         if (fs.existsSync(javaFile)) fs.unlinkSync(javaFile);
         if (fs.existsSync(classFile)) fs.unlinkSync(classFile);
+      } catch (e) {}
+    };
+
+    exec(
+      `javac "${javaFile}" && java -cp "${tempDir}" Solution`,
+      { timeout: 5000, maxBuffer: 1024 * 1024 },
+      (error, stdout, stderr) => {
+
+        cleanup();
 
         if (error) {
+          if (error.killed) {
+            return reject("Execution Timeout: Infinite loop detected (5s limit)");
+          }
+
+          if (error.signal === "SIGTERM") {
+            return reject("Execution terminated due to timeout");
+          }
+
           return reject(stderr || error.message);
         }
 
-        if (stderr) {
+        if (stderr && stderr.trim().length > 0) {
           return reject(stderr);
         }
         resolve(stdout);
