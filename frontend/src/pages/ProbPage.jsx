@@ -158,6 +158,7 @@ function ProbPage() {
                         <Panel defaultSize={30} minSize={10}>
                             <OutputPanel
                                 output={output}
+                                expectedOutput={currentProblem?.expectedOutput?.[selectedLanguage]}
                             />
                         </Panel>
                     </Group>
