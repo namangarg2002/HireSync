@@ -1,6 +1,6 @@
 import express from 'express';
 import protectRoute from '../middlewares/protectRoute.js';
-import { createSession, getActiveSession, getMyRecentSessions, getSessionById, joinSession, endSession } from '../controllers/sessionController.js';
+import { createSession, getActiveSession, getMyRecentSessions, getSessionById, joinSession, leaveSession, endSession } from '../controllers/sessionController.js';
 
 const router = express.Router()
 
@@ -10,6 +10,7 @@ router.get('/my-recent', protectRoute, getMyRecentSessions);
 
 router.get('/:sessionId', protectRoute, getSessionById);
 router.post('/:sessionId/join', protectRoute, joinSession);
+router.post('/:sessionId/leave', protectRoute, leaveSession);
 router.post('/:sessionId/end', protectRoute, endSession);
 
 export default router;
