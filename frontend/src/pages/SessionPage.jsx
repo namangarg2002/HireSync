@@ -1,7 +1,8 @@
 import { useUser } from '@clerk/clerk-react';
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useEndSessions, useJoinSessions, useSessionById } from '../hooks/useSession';
+import { io } from 'socket.io-client';
+import { useEndSessions, useJoinSessions, useLeaveSession, useSessionById } from '../hooks/useSession';
 import { PROBLEMS } from '../data/problems';
 import { executeCode } from '../lib/excecuteCodeEditor';
 import Navbar from '../components/Navbar';
@@ -15,6 +16,8 @@ import useStreamClient from '../hooks/useStreamClient';
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
 
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL;
+
 function SessionPage() {
     const navigate = useNavigate();
     const { sessionId } = useParams();
@@ -24,10 +27,11 @@ function SessionPage() {
 
     const { data:sessionData, isLoading:loadingSession, refetch} = useSessionById(sessionId);
     const joinSessionMutation = useJoinSessions();
+    const leaveSessionMutation = useLeaveSession();
     const endSessionMutation = useEndSessions();
 
     const session = sessionData?.session;
-    console.log("Session is : ", session)
+    // console.log("Session is : ", session)
 
     const isHost = session?.host?.clerkId === user?.id;
     const isParticipant = session?.participant?.clerkId === user?.id;
@@ -46,14 +50,56 @@ function SessionPage() {
     const [selectedLanguage, setSelectedLanguage] = useState('javascript');
     const [code, setCode] = useState(problemData?.starterCode?.[selectedLanguage] || '')
 
+    const hasLeftRef = useRef(false);
+    const hasJoinedRef = useRef(false);
+    const hasHydratedStateRef = useRef(false);
+    const isRemoteUpdateRef = useRef(false);
+    const remoteResetTimerRef = useRef(null);
+    const codeSyncTimerRef = useRef(null);
+    const socketRef = useRef(null);
+    const latestCodeRef = useRef(code);
+    const latestLangRef = useRef(selectedLanguage);
+
     useEffect(() => {
-        if (!session || !user || loadingSession) return;
-        if (isHost || isParticipant) return;
+        latestCodeRef.current = code;
+    }, [code]);
 
-        joinSessionMutation.mutate(sessionId, { onSuccess: refetch });
+    useEffect(() => {
+        latestLangRef.current = selectedLanguage;
+    }, [selectedLanguage]);
 
-        // remove the joinSessionMutation, refetch from dependencies to avoid infinite loop
-    }, [session, user, loadingSession, isHost, isParticipant, sessionId]);
+    const broadcastSync = useCallback(({ nextCode, nextLanguage, nextOutput, nextIsRunning }) => {
+        const socket = socketRef.current;
+        if (!socket || !sessionId || !user?.id || session?.status === "completed") return;
+
+        const payload = {
+            sessionId,
+            senderId: user.id,
+        };
+
+        if (typeof nextCode === "string") payload.code = nextCode;
+        if (typeof nextLanguage === "string") payload.language = nextLanguage;
+        if (nextOutput !== undefined) payload.output = nextOutput;
+        if(typeof nextIsRunning === "boolean") payload.isRunning = nextIsRunning;
+
+        socket.emit("editor-sync", payload);
+    }, [sessionId, user?.id, session?.status]);
+
+    useEffect(() => {
+        if (!session || !user || loadingSession || hasLeftRef.current || hasJoinedRef.current) return;
+        if (isHost || isParticipant || joinSessionMutation.isPending) return;
+
+        hasJoinedRef.current = true;
+        joinSessionMutation.mutate(sessionId, {
+            onSuccess: () => {
+                refetch();
+            },
+            onError: () => {
+                hasJoinedRef.current = false;
+            },
+        });
+
+    }, [session, user, loadingSession, isHost, isParticipant, sessionId, joinSessionMutation.isPending]);
 
 
     useEffect(() => {
@@ -62,37 +108,194 @@ function SessionPage() {
         if (session.status === "completed") navigate("/dashboard");
     }, [session, loadingSession, navigate]);
 
+    useEffect(() => {
+        if (!sessionId || !user?.id || session?.status === "completed") return;
+
+        const socket = io(SOCKET_URL, {
+            transports: ["websocket", "polling"],
+        });
+        socketRef.current = socket;
+
+        const applyStateSnapshot = (snapshot) => {
+            if (!snapshot) return;
+
+            isRemoteUpdateRef.current = true;
+            hasHydratedStateRef.current = true;
+
+            if (typeof snapshot.language === "string") {
+                latestLangRef.current = snapshot.language;
+                setSelectedLanguage(snapshot.language);
+            }
+            if (typeof snapshot.code === "string") {
+                latestCodeRef.current = snapshot.code;
+                setCode(snapshot.code);
+            }
+            if (snapshot.output !== undefined) {
+                setOutput(snapshot.output);
+            }
+            if (typeof snapshot.isRunning === "boolean"){
+                setIsRunning(snapshot.isRunning);
+            }
+
+            clearTimeout(remoteResetTimerRef.current);
+            remoteResetTimerRef.current = setTimeout(() => {
+                isRemoteUpdateRef.current = false;
+            }, 60);
+        };
+
+        socket.on("connect", () => {
+            socket.emit("join-session", { sessionId });
+        });
+
+        socket.on("session-state", (snapshot) => {
+            applyStateSnapshot(snapshot);
+        });
+
+        socket.on("editor-sync", (event) => {
+            if (!event || event.senderId === user.id) return;
+            applyStateSnapshot(event);
+        });
+
+        socket.on("session-ended", () => {
+            navigate("/dashboard");
+        });
+
+        return () => {
+            clearTimeout(remoteResetTimerRef.current);
+            clearTimeout(codeSyncTimerRef.current);
+            socket.off("connect");
+            socket.off("session-state");
+            socket.off("editor-sync");
+            socket.off("session-ended");
+            socket.disconnect();
+            socketRef.current = null;
+        };
+    }, [sessionId, user?.id, session?.status, navigate]);
+
     // update code when problem loads or changes
     useEffect(() => {
+        if (isRemoteUpdateRef.current || hasHydratedStateRef.current) return;
         if (problemData?.starterCode?.[selectedLanguage]) {
-        setCode(problemData.starterCode[selectedLanguage]);
+            setCode(problemData.starterCode[selectedLanguage]);
         }
     }, [problemData, selectedLanguage]);
 
-    const handleLanguageChange = (e) => {
-        const newLang = e.target.value;
-        setSelectedLanguage(newLang);
-        // use problem-specific starter code
+    // // Listen for live code, language, and output updates from the other participant/host
+    // useEffect(() => {
+    //     if (!channel || !user?.id) return;
+
+    //     const handleChannelEvent = (event) => {
+    //         if (event.type !== "editor-sync") return;
+    //         const payload = event.data || event;
+    //         if (!payload || payload.senderId === user.id) return;
+
+    //         isRemoteUpdateRef.current = true;
+
+    //         if (typeof payload.language === "string") {
+    //             latestLangRef.current = payload.language;
+    //             setSelectedLanguage(payload.language);
+    //         }
+    //         if (typeof payload.code === "string") {
+    //             latestCodeRef.current = payload.code;
+    //             setCode(payload.code);
+    //         }
+    //         if (payload.output !== undefined) {
+    //             setOutput(payload.output);
+    //         }
+
+    //         clearTimeout(remoteResetTimerRef.current);
+    //         remoteResetTimerRef.current = setTimeout(() => {
+    //             isRemoteUpdateRef.current = false;
+    //         }, 60);
+    //     };
+
+    //     channel.on("editor-sync", handleChannelEvent);
+
+    //     return () => {
+    //         clearTimeout(remoteResetTimerRef.current);
+    //         clearTimeout(codeSyncTimerRef.current);
+    //         channel.off("editor-sync", handleChannelEvent);
+    //     };
+    // }, [channel, user?.id]);
+
+    const handleLanguageChange = (langOrEvent) => {
+        const newLang = typeof langOrEvent === "string"
+            ? langOrEvent
+            : langOrEvent?.target?.value;
+
+        if (!newLang) return;
+
         const starterCode = problemData?.starterCode?.[newLang] || "";
+        latestLangRef.current = newLang;
+        latestCodeRef.current = starterCode;
+        setSelectedLanguage(newLang);
         setCode(starterCode);
         setOutput(null);
+
+        if (!isRemoteUpdateRef.current) {
+            clearTimeout(codeSyncTimerRef.current);
+            broadcastSync({
+                nextCode: starterCode,
+                nextLanguage: newLang,
+                nextOutput: null,
+            });
+        }
     };
+
+    const handleCodeChange = (value) => {
+        const nextCode = value ?? "";
+        latestCodeRef.current = nextCode;
+        setCode(nextCode);
+
+        if (isRemoteUpdateRef.current) return;
+
+        clearTimeout(codeSyncTimerRef.current);
+        codeSyncTimerRef.current = setTimeout(() => {
+            broadcastSync({
+                nextCode: latestCodeRef.current,
+                nextLanguage: latestLangRef.current,
+            });
+        }, 80);
+    };
+
+    
 
     const handleRunCode = async () => {
         setIsRunning(true);
         setOutput(null);
+        broadcastSync({ nextOutput: null, nextIsRunning: true });
 
-        const result = await executeCode(selectedLanguage, code);
-        setOutput(result);
-        setIsRunning(false);
+        try {
+            const result = await executeCode(selectedLanguage, latestCodeRef.current);
+            setOutput(result);
+            broadcastSync({ nextOutput: result, nextIsRunning: false });
+        } catch (err) {
+            console.error("Failed to execute code:", err);
+            broadcastSync({ nextOutput: null, nextIsRunning: false });
+        } finally {
+            setIsRunning(false);
+        }
     };
 
     const handleEndSession = () => {
         if (confirm("Are you sure you want to end this session? All participants will be notified.")) {
-        // this will navigate the HOST to dashboard
-        endSessionMutation.mutate(sessionId, { onSuccess: () => navigate("/dashboard") });
+          socketRef.current?.emit("end-session", { sessionId });
+          endSessionMutation.mutate(sessionId, { onSuccess: () => navigate("/dashboard") });
         }
     };
+
+    const handleLeaveSession = () => {
+        if (confirm("Are you sure you want to leave this session?")) {
+            hasLeftRef.current = true;
+            leaveSessionMutation.mutate(sessionId, {
+                onSuccess: () => navigate("/dashboard"),
+                onError: () => {
+                    hasLeftRef.current = false;
+                },
+            });
+        }
+    };
+    
 
   return (
     <div className="h-screen bg-base-100 flex flex-col">
@@ -143,6 +346,20 @@ function SessionPage() {
                               <LogOutIcon className="w-4 h-4" />
                             )}
                             End Session
+                          </button>
+                        )}
+                        {isParticipant && session?.status === "active" && (
+                          <button
+                            onClick={handleLeaveSession}
+                            disabled={leaveSessionMutation.isPending}
+                            className="btn btn-warning btn-sm gap-2"
+                          >
+                            {leaveSessionMutation.isPending ? (
+                              <Loader2Icon className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <LogOutIcon className="w-4 h-4" />
+                            )}
+                            Leave Session
                           </button>
                         )}
                         {session?.status === "completed" && (
@@ -238,7 +455,7 @@ function SessionPage() {
                       code={code}
                       isRunning={isRunning}
                       onLanguageChange={handleLanguageChange}
-                      onCodeChange={(value) => setCode(value)}
+                      onCodeChange={handleCodeChange}
                       onRunCode={handleRunCode}
                     />
                   </Panel>
@@ -248,7 +465,7 @@ function SessionPage() {
                   </Separator>
 
                   <Panel defaultSize={30} minSize={15}>
-                    <OutputPanel output={output} />
+                    <OutputPanel output={output} expectedOutput={problemData?.expectedOutput?.[selectedLanguage]}/>
                   </Panel>
                 </Group>
               </Panel>
@@ -285,7 +502,7 @@ function SessionPage() {
                 <div className="h-full">
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
-                      <VideoCallUI chatClient={chatClient} channel={channel} />
+                      <VideoCallUI chatClient={chatClient} channel={channel} onLeaveCall={!isHost && isParticipant ? handleLeaveSession : undefined} />
                     </StreamCall>
                   </StreamVideo>
                 </div>

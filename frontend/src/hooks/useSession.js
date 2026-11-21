@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { sessionAPI } from '../api/session'
 
@@ -43,21 +43,47 @@ export const useSessionById = (sessionId) => {
 }
 
 export const useJoinSessions = () => {
+    const queryClient = useQueryClient();
     const result = useMutation({
         mutationKey: ['joinSession'],
         mutationFn: sessionAPI.joinSession,
-        onSuccess: () => toast.success("Joined session succesfully!"),
+        onSuccess: () => {
+            toast.success("Joined session succesfully!");
+            queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
+        },
         onError: (error) => toast.error(error.response?.data?.message || "Failed to join room"),
     })
 
     return result;
 }
 
+export const useLeaveSession = () => {
+    const queryClient = useQueryClient();
+    const result = useMutation({
+        mutationKey: ['leaveSession'],
+        mutationFn: sessionAPI.leaveSession,
+        onSuccess: (_, sessionId) => {
+            toast.success("Left session successfully!");
+            queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
+            if (sessionId) {
+                queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+            }
+        },
+        onError: (error) => toast.error(error.response?.data?.message || "Failed to leave room"),
+    })
+
+    return result;
+}
+
 export const useEndSessions = () => {
+    const queryClient = useQueryClient();
     const result = useMutation({
         mutationKey: ['endSession'],
-        mutationFn:sessionAPI.endSession,
-        onSuccess: () => toast.success("Session ended succesfully!"),
+        mutationFn: sessionAPI.endSession,
+        onSuccess: () => {
+            toast.success("Session ended succesfully!");
+            queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
+        },
         onError: (error) => toast.error(error.response?.data?.message || "Failed to end room"),
     })
 

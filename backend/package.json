@@ -20,6 +20,7 @@
     "inngest": "^3.52.4",
     "mongoose": "^9.2.3",
     "path": "^0.12.7",
+    "socket.io": "^4.8.4",
     "stream-chat": "^9.35.1",
     "uuid": "^13.0.0"
   },

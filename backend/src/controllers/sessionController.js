@@ -140,6 +140,64 @@ async function joinSession(req, res) {
     }
 }
 
+async function leaveSession(req, res) {
+    console.log('[leaveSession] hit:', {
+        method: req.method,
+        originalUrl: req.originalUrl,
+        sessionId: req.params.sessionId,
+        userId: req.user?._id,
+        clerkId: req.user?.clerkId,
+    });
+
+    try {
+        const { sessionId } = req.params;
+        const userId = req.user._id;
+        const clerkId = req.user.clerkId;
+
+        const session = await Session.findById(sessionId);
+        if (!session) {
+            console.log('[leaveSession] 404 Session not found:', sessionId);
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        if (session.status !== 'active') {
+            console.log('[leaveSession] 400 Session not active:', session.status);
+            return res.status(400).json({ message: 'Cannot leave a completed session' });
+        }
+
+        if (session.host.toString() === userId.toString()) {
+            console.log('[leaveSession] 400 User is host:', userId.toString());
+            return res.status(400).json({ message: 'Host cannot leave session; end the session instead' });
+        }
+
+        if (!session.participant || session.participant.toString() !== userId.toString()) {
+            console.log('[leaveSession] 400 Participant mismatch:', {
+                participant: session.participant?.toString() ?? null,
+                userId: userId.toString(),
+            });
+            return res.status(400).json({ message: 'You are not the participant in this session' });
+        }
+
+        session.participant = null;
+        await session.save();
+        console.log('[leaveSession] Cleared participant in MongoDB for session:', sessionId);
+
+        if (session.callId && clerkId) {
+            const channel = chatClient.channel('messaging', session.callId);
+            await channel.removeMembers([clerkId]);
+            console.log('[leaveSession] Removed member from Stream channel:', {
+                callId: session.callId,
+                clerkId,
+            });
+        }
+
+        res.status(200).json({ message: 'Successfully left session' });
+    } catch (error) {
+        console.log("Error leaving session:", error.message);
+        res.status(500).json({ message: 'Error leaving session' });
+    }
+}
+
 async function endSession(req, res) {
     try {
         const { sessionId } = req.params;
@@ -179,4 +237,4 @@ async function endSession(req, res) {
     }
 }
 
-export { createSession, getActiveSession, getMyRecentSessions, getSessionById, joinSession, endSession };
+export { createSession, getActiveSession, getMyRecentSessions, getSessionById, joinSession, leaveSession, endSession };

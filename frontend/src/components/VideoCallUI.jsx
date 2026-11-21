@@ -19,6 +19,14 @@ function VideoCallUI({ chatClient, channel }) {
   const participantCount = useParticipantCount();
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  const handleLeave = () => {
+    if (onLeaveCall) {
+      onLeaveCall();
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
   if (callingState === CallingState.JOINING) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -58,7 +66,7 @@ function VideoCallUI({ chatClient, channel }) {
         </div>
 
         <div className="bg-base-100 p-3 rounded-lg shadow flex justify-center">
-          <CallControls onLeave={() => navigate("/dashboard")} />
+          <CallControls onLeave={{handleLeave}} />
         </div>
       </div>
 
